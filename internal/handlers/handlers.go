@@ -27,13 +27,14 @@ func respondWithError(w http.ResponseWriter, statusCode int, message string) {
 	respondWithJSON(w, statusCode, map[string]string{"error": message})
 }
 
-func getID(w http.ResponseWriter, r *http.Request) int {
-	path := strings.Split(strings.TrimPrefix(r.URL.Path, "/task/"), "/")
+func getID(w http.ResponseWriter, r *http.Request) (int, bool) {
+	path := strings.Split(strings.TrimPrefix(r.URL.Path, "/tasks/"), "/")
 	id, err := strconv.Atoi(path[0])
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "некорректный ID задачи")
+		return 0, false
 	}
-	return id
+	return id, true
 }
 
 func (h *Handlers) GetAllTasks(w http.ResponseWriter, r *http.Request) {
@@ -47,7 +48,12 @@ func (h *Handlers) GetAllTasks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) GetTaskByID(w http.ResponseWriter, r *http.Request) {
-	id := getID(w, r)
+	id, ok := getID(w, r)
+
+	if !ok {
+		return
+	}
+
 	task, err := h.store.GetById(id)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, err.Error())
@@ -73,13 +79,19 @@ func (h *Handlers) CreateTask(w http.ResponseWriter, r *http.Request) {
 	result, err := h.store.Create(task)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
 	}
 	respondWithJSON(w, http.StatusCreated, result)
 }
 
 func (h *Handlers) UpdateTask(w http.ResponseWriter, r *http.Request) {
 
-	id := getID(w, r)
+	id, ok := getID(w, r)
+
+	if !ok {
+		return
+	}
+
 	var input models.UpdateTaskInput
 
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
@@ -107,7 +119,11 @@ func (h *Handlers) UpdateTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) DeleteTask(w http.ResponseWriter, r *http.Request) {
-	id := getID(w, r)
+	id, ok := getID(w, r)
+
+	if !ok {
+		return
+	}
 
 	err := h.store.Delete(id)
 
